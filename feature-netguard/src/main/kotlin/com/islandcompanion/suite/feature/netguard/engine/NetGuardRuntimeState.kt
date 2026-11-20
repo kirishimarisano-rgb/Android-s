@@ -11,11 +11,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * 引擎即時診斷狀態，協助即時排查 TUN 讀寫、lwIP 原生核心與本機 SOCKS5 策略代理狀況。
+ * 引擎即時診斷狀態，協助即時排查 TUN 讀寫、socketpair 交接、lwIP 原生核心與本機 SOCKS5 策略代理狀況。
  */
 data class NetGuardDiagnostics(
     val tunReadPackets: Long = 0L,
+    val sentToLwipPackets: Long = 0L,
     val lwipReturnPackets: Long = 0L,
+    val dnsResponsesWritten: Long = 0L,
     val lwipStatus: String = "未啟動",
     val socks5Port: Int = 0,
     val socks5TotalConnections: Long = 0L,
@@ -44,7 +46,9 @@ object NetGuardRuntimeState {
     private const val MAX_LOG_ENTRIES = 200
     private val nextId = AtomicLong(1L)
     private val tunReadCounter = AtomicLong(0L)
+    private val sentToLwipCounter = AtomicLong(0L)
     private val lwipReturnCounter = AtomicLong(0L)
+    private val dnsResponseCounter = AtomicLong(0L)
     private val socksTotalCounter = AtomicLong(0L)
     private val socksActiveCounter = AtomicInteger(0)
 
@@ -72,14 +76,18 @@ object NetGuardRuntimeState {
      */
     fun resetSessionDiagnostics() {
         tunReadCounter.set(0L)
+        sentToLwipCounter.set(0L)
         lwipReturnCounter.set(0L)
+        dnsResponseCounter.set(0L)
         socksTotalCounter.set(0L)
         socksActiveCounter.set(0)
         _snapshot.update { current ->
             current.copy(
                 diagnostics = NetGuardDiagnostics(
                     tunReadPackets = 0L,
+                    sentToLwipPackets = 0L,
                     lwipReturnPackets = 0L,
+                    dnsResponsesWritten = 0L,
                     lwipStatus = "初始化中…",
                     socks5Port = 0,
                     socks5TotalConnections = 0L,
@@ -104,6 +112,18 @@ object NetGuardRuntimeState {
     }
 
     /**
+     * 記錄透過 socketpair 成功送往 lwIP 核心的封包數。
+     */
+    fun recordSentToLwipPacket() {
+        val count = sentToLwipCounter.incrementAndGet()
+        _snapshot.update { current ->
+            current.copy(
+                diagnostics = current.diagnostics.copy(sentToLwipPackets = count),
+            )
+        }
+    }
+
+    /**
      * 記錄自 lwIP 核心回寫至真實 TUN 的封包數。
      */
     fun recordLwipReturnPacket() {
@@ -111,6 +131,18 @@ object NetGuardRuntimeState {
         _snapshot.update { current ->
             current.copy(
                 diagnostics = current.diagnostics.copy(lwipReturnPackets = count),
+            )
+        }
+    }
+
+    /**
+     * 記錄成功寫回 TUN 的加密 DNS（DoH / DoT）或黑洞回應封包數。
+     */
+    fun recordDnsResponseWritten() {
+        val count = dnsResponseCounter.incrementAndGet()
+        _snapshot.update { current ->
+            current.copy(
+                diagnostics = current.diagnostics.copy(dnsResponsesWritten = count),
             )
         }
     }

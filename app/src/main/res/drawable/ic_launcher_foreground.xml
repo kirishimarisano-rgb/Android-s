@@ -1,13 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!--
+        極簡幾何雙層六角菱形安全 Logo（象徵 Mainland 與 Island 雙空間隔離守護）
+        所有圖形位於 Adaptive Icon 66dp 安全區（21..87）內，清晰俐落。
+    -->
+
+    <!-- 外層霓虹青至紫羅蘭漸層六角外框 -->
     <path
-        android:fillColor="#4FD8EB"
-        android:pathData="M54,22L30,32V52C30,68.2 40.2,83.1 54,88C67.8,83.1 78,68.2 78,52V32L54,22ZM54,30.5L70,37.2V52C70,63.9 62.9,74.8 54,79.2C45.1,74.8 38,63.9 38,52V37.2L54,30.5Z" />
+        android:fillColor="#00000000"
+        android:pathData="M54,24L79,38.5V69.5L54,84L29,69.5V38.5Z"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.6">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:endX="79"
+                android:endY="84"
+                android:startX="29"
+                android:startY="24"
+                android:type="linear">
+                <item android:color="#4FD8EB" android:offset="0.0" />
+                <item android:color="#7C9EFF" android:offset="0.55" />
+                <item android:color="#B388FF" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 內層交疊幾何雙翼（象徵雙空間隔離閘門） -->
     <path
-        android:fillColor="#81C784"
-        android:pathData="M54,40L44,44.5V52C44,58.6 48.2,64.7 54,67.2C59.8,64.7 64,58.6 64,52V44.5L54,40Z" />
+        android:pathData="M54,35L70,44.5V63.5L54,73L38,63.5V44.5Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="70"
+                android:endY="73"
+                android:startX="38"
+                android:startY="35"
+                android:type="linear">
+                <item android:color="#264FD8EB" android:offset="0.0" />
+                <item android:color="#33B388FF" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 中心俐落菱形核心與橫向切線 -->
+    <path
+        android:pathData="M54,42L64,54L54,66L44,54Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="54"
+                android:endY="66"
+                android:startX="54"
+                android:startY="42"
+                android:type="linear">
+                <item android:color="#4FD8EB" android:offset="0.0" />
+                <item android:color="#B388FF" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#0C1124"
+        android:pathData="M54,49.5L58.5,54L54,58.5L49.5,54Z" />
 </vector>

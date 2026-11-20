@@ -329,7 +329,15 @@ private fun EngineDiagnosticsCard(
             )
             DiagnosticMetricRow(
                 label = "TUN 讀取封包數",
-                value = "${diagnostics.tunReadPackets}（回寫 ${diagnostics.lwipReturnPackets}）",
+                value = "${diagnostics.tunReadPackets}",
+            )
+            DiagnosticMetricRow(
+                label = "送往 lwIP 封包數",
+                value = "${diagnostics.sentToLwipPackets}",
+            )
+            DiagnosticMetricRow(
+                label = "lwIP 回寫 TUN 封包數",
+                value = "${diagnostics.lwipReturnPackets}（DoH 回寫 ${diagnostics.dnsResponsesWritten}）",
             )
             DiagnosticMetricRow(
                 label = "lwIP 核心狀態",
