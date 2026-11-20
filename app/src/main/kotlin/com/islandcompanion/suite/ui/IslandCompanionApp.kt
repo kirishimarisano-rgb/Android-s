@@ -28,7 +28,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.islandcompanion.suite.core.rules.SecurityFeatureModule
 import com.islandcompanion.suite.feature.inspector.InspectorPlaceholderScreen
 import com.islandcompanion.suite.feature.islandctrl.IslandCtrlPlaceholderScreen
-import com.islandcompanion.suite.feature.netguard.NetGuardPlaceholderScreen
+import com.islandcompanion.suite.feature.netguard.ui.NetGuardScreen
+import com.islandcompanion.suite.feature.netguard.ui.NetGuardViewModel
 import com.islandcompanion.suite.feature.sanitizer.SanitizerPlaceholderScreen
 
 private enum class TopLevelTab(
@@ -48,10 +49,11 @@ private enum class TopLevelTab(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IslandCompanionApp(
-    viewModel: DashboardViewModel,
+    dashboardViewModel: DashboardViewModel,
+    netGuardViewModel: NetGuardViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by dashboardViewModel.uiState.collectAsStateWithLifecycle()
     var currentTab by rememberSaveable { mutableStateOf(TopLevelTab.DASHBOARD) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
@@ -120,8 +122,8 @@ fun IslandCompanionApp(
         if (showSettings) {
             SettingsScreen(
                 uiState = uiState,
-                onSelectOverrideMode = viewModel::updateOverrideMode,
-                onRefreshDetection = viewModel::refreshSpaceDetection,
+                onSelectOverrideMode = dashboardViewModel::updateOverrideMode,
+                onRefreshDetection = dashboardViewModel::refreshSpaceDetection,
                 modifier = contentModifier,
             )
         } else {
@@ -139,7 +141,11 @@ fun IslandCompanionApp(
                     modifier = contentModifier,
                 )
 
-                TopLevelTab.NETGUARD -> NetGuardPlaceholderScreen(modifier = contentModifier)
+                TopLevelTab.NETGUARD -> NetGuardScreen(
+                    viewModel = netGuardViewModel,
+                    modifier = contentModifier,
+                )
+
                 TopLevelTab.SANITIZER -> SanitizerPlaceholderScreen(modifier = contentModifier)
                 TopLevelTab.INSPECTOR -> InspectorPlaceholderScreen(modifier = contentModifier)
                 TopLevelTab.ISLAND_CTRL -> IslandCtrlPlaceholderScreen(modifier = contentModifier)

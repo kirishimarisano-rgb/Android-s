@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- 本機網路守門員前景 VpnService（僅在 IP + DNS + TLS SNI 層級過濾，不做 HTTPS MITM） -->
+        <service
+            android:name=".service.NetGuardVpnService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Local on-device VpnService firewall for IP, DNS, and TLS SNI filtering" />
+        </service>
+    </application>
+</manifest>

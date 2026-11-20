@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.islandcompanion.suite.core.ui.theme.IslandCompanionTheme
+import com.islandcompanion.suite.feature.netguard.ui.NetGuardViewModel
 import com.islandcompanion.suite.ui.DashboardViewModel
 import com.islandcompanion.suite.ui.IslandCompanionApp
 
@@ -27,7 +28,15 @@ class MainActivity : ComponentActivity() {
                         spaceOverrideRepository = appContainer.spaceOverrideRepository,
                     ),
                 )
-                IslandCompanionApp(viewModel = dashboardViewModel)
+                val netGuardViewModel: NetGuardViewModel = viewModel(
+                    factory = NetGuardViewModel.provideFactory(
+                        rulesRepository = appContainer.netGuardRulesRepository,
+                    ),
+                )
+                IslandCompanionApp(
+                    dashboardViewModel = dashboardViewModel,
+                    netGuardViewModel = netGuardViewModel,
+                )
             }
         }
     }

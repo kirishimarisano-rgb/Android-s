@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 網路守門員透過 VpnService.protect() 轉發外部連線與 DoH/DoT 查詢所需 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 網路守門員前景服務常駐通知所需 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android 14+ (API 34+) 啟動本機 VPN 前景服務所需之 specialUse 類型宣告 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Android 13+ (API 33+) 顯示網路守門員連線／攔截計數常駐通知所需（使用者可拒絕） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!--
-        遵循最小權限原則：
-        里程碑 1 僅實作中央空殼與安全空間偵測（透過 DevicePolicyManager 公開 API），
-        不申請任何額外權限（無 INTERNET、無 Device Owner、無無障礙服務、無 QUERY_ALL_PACKAGES）。
+        嚴格遵守安全紅線：
+        不申請 Root、Device Owner、AccessibilityService 或 QUERY_ALL_PACKAGES。
     -->
 
     <application
