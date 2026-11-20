@@ -15,14 +15,15 @@ import javax.net.ssl.SSLSocketFactory
 /**
  * 加密 DNS 解析器：將攔截到的明文 UDP 53 查詢轉發至使用者自訂的 DoH 或 DoT 上游伺服器。
  *
- * 所有對外 Socket 皆透過 [protectSocket]（即 `VpnService.protect()`）保護，確保不回流進 VPN 造成迴圈。
+ * 所有對外 Socket 皆透過 [protectSocket]（即 `VpnService.protect()`）保護，
+ * 搭配 `VpnService.Builder.addDisallowedApplication(packageName)` 雙重確保不回流進 VPN 造成迴圈。
  */
 class EncryptedDnsResolver(
     private val protectSocket: (Socket) -> Boolean,
 ) {
     /**
      * 依 [config] 設定將原始 DNS 查詢封包 [queryPayload] 送往加密上游並回傳原始 DNS 回應封包。
-     * 若連線失敗或逾時則回傳 `null`。
+     * 若連線失敗或逾時，會將真實例外記錄至引擎診斷狀態並回傳 `null`。
      */
     fun resolve(queryPayload: ByteArray, config: NetGuardConfig): ByteArray? {
         val upstream = config.dnsUpstream.trim().ifEmpty {
@@ -38,7 +39,7 @@ class EncryptedDnsResolver(
     }
 
     private fun resolveViaDoh(queryPayload: ByteArray, urlString: String): ByteArray? {
-        return runCatching {
+        return try {
             val normalizedUrl = if (urlString.startsWith("https://")) urlString else "https://$urlString"
             val connection = (URL(normalizedUrl).openConnection() as HttpsURLConnection).apply {
                 sslSocketFactory = ProtectedSslSocketFactory(
@@ -58,24 +59,29 @@ class EncryptedDnsResolver(
                     out.write(queryPayload)
                     out.flush()
                 }
-                if (connection.responseCode == HttpsURLConnection.HTTP_OK) {
+                val code = connection.responseCode
+                if (code == HttpsURLConnection.HTTP_OK) {
                     connection.inputStream.use { it.readBytes() }
                 } else {
+                    NetGuardRuntimeState.recordErrorMessage("[DoH] 上游回應 HTTP $code ($normalizedUrl)")
                     null
                 }
             } finally {
                 connection.disconnect()
             }
-        }.getOrNull()
+        } catch (t: Throwable) {
+            NetGuardRuntimeState.recordError("DoH", t)
+            null
+        }
     }
 
     private fun resolveViaDot(queryPayload: ByteArray, upstream: String): ByteArray? {
-        return runCatching {
+        return try {
             val clean = upstream.removePrefix("tls://").removePrefix("https://").substringBefore('/')
             val host = clean.substringBefore(':')
             val port = clean.substringAfter(':', "853").toIntOrNull() ?: 853
             val rawSocket = Socket()
-            protectSocket(rawSocket)
+            runCatching { protectSocket(rawSocket) }
             rawSocket.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)
             rawSocket.soTimeout = READ_TIMEOUT_MS
 
@@ -97,9 +103,15 @@ class EncryptedDnsResolver(
                 input.readFully(response)
                 response
             }
-        }.getOrNull()
+        } catch (t: Throwable) {
+            NetGuardRuntimeState.recordError("DoT", t)
+            null
+        }
     }
 
+    /**
+     * 安全包裝底層明文 [Socket] 並呼叫 `VpnService.protect()`，避免直接對 Conscrypt `SSLSocket` 呼叫造成例外。
+     */
     private class ProtectedSslSocketFactory(
         private val delegate: SSLSocketFactory,
         private val protectSocket: (Socket) -> Boolean,
@@ -107,10 +119,16 @@ class EncryptedDnsResolver(
         override fun getDefaultCipherSuites(): Array<String> = delegate.defaultCipherSuites
         override fun getSupportedCipherSuites(): Array<String> = delegate.supportedCipherSuites
 
-        override fun createSocket(): Socket = delegate.createSocket().also { protectSocket(it) }
+        override fun createSocket(): Socket = delegate.createSocket().also {
+            runCatching { protectSocket(it) }
+        }
 
-        override fun createSocket(s: Socket?, host: String?, port: Int, autoClose: Boolean): Socket =
-            delegate.createSocket(s, host, port, autoClose).also { protectSocket(it) }
+        override fun createSocket(s: Socket?, host: String?, port: Int, autoClose: Boolean): Socket {
+            if (s != null && !s.isConnected) {
+                runCatching { protectSocket(s) }
+            }
+            return delegate.createSocket(s, host, port, autoClose)
+        }
 
         override fun createSocket(host: String?, port: Int): Socket =
             createProtectedConnectedSocket(InetAddress.getByName(host), port, host)
@@ -126,7 +144,7 @@ class EncryptedDnsResolver(
 
         private fun createProtectedConnectedSocket(address: InetAddress, port: Int, sniHost: String?): Socket {
             val plain = Socket()
-            protectSocket(plain)
+            runCatching { protectSocket(plain) }
             plain.connect(InetSocketAddress(address, port), CONNECT_TIMEOUT_MS)
             return delegate.createSocket(plain, sniHost ?: address.hostAddress, port, true)
         }

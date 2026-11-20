@@ -64,6 +64,7 @@ import com.islandcompanion.suite.core.rules.DnsUpstreamProtocol
 import com.islandcompanion.suite.core.rules.NetGuardConfig
 import com.islandcompanion.suite.core.rules.TrafficAction
 import com.islandcompanion.suite.core.rules.TrafficLogEntry
+import com.islandcompanion.suite.feature.netguard.engine.NetGuardDiagnostics
 import com.islandcompanion.suite.feature.netguard.service.NetGuardVpnService
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,7 +72,7 @@ import java.util.Locale
 
 /**
  * 本機網路守門員（`:feature-netguard`）主畫面。
- * 提供 VPN 即時開關、即時流量日誌（可點擊網域一鍵封鎖）、防側漏設定與網域黑名單管理。
+ * 提供 VPN 即時開關、引擎診斷卡片、即時流量日誌（可點擊網域一鍵封鎖）、防側漏設定與網域黑名單管理。
  */
 @Composable
 fun NetGuardScreen(
@@ -130,7 +131,12 @@ fun NetGuardScreen(
                     requestStartVpn()
                 }
             },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp),
+        )
+
+        EngineDiagnosticsCard(
+            diagnostics = uiState.diagnostics,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
 
         uiState.feedbackMessage?.let { msg ->
@@ -290,6 +296,86 @@ private fun VpnStatusBanner(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun EngineDiagnosticsCard(
+    diagnostics: NetGuardDiagnostics,
+    modifier: Modifier = Modifier,
+) {
+    val hasError = !diagnostics.lastError.isNullOrBlank()
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasError) {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = "引擎診斷",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            DiagnosticMetricRow(
+                label = "TUN 讀取封包數",
+                value = "${diagnostics.tunReadPackets}（回寫 ${diagnostics.lwipReturnPackets}）",
+            )
+            DiagnosticMetricRow(
+                label = "lwIP 核心狀態",
+                value = diagnostics.lwipStatus,
+            )
+            DiagnosticMetricRow(
+                label = "SOCKS5 Relay 狀態",
+                value = diagnostics.socks5Status,
+            )
+            DiagnosticMetricRow(
+                label = "最後一筆錯誤訊息",
+                value = diagnostics.lastError ?: "無",
+                highlightError = hasError,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticMetricRow(
+    label: String,
+    value: String,
+    highlightError: Boolean = false,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = "$label：",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (highlightError) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

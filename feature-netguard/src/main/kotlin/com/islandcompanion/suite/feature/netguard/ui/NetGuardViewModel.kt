@@ -7,6 +7,7 @@ import com.islandcompanion.suite.core.rules.DnsUpstreamProtocol
 import com.islandcompanion.suite.core.rules.NetGuardConfig
 import com.islandcompanion.suite.core.rules.NetGuardRulesRepository
 import com.islandcompanion.suite.core.rules.TrafficLogEntry
+import com.islandcompanion.suite.feature.netguard.engine.NetGuardDiagnostics
 import com.islandcompanion.suite.feature.netguard.engine.NetGuardRuntimeState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,13 +25,14 @@ data class NetGuardUiState(
     val allowedCount: Long = 0L,
     val blockedCount: Long = 0L,
     val logs: List<TrafficLogEntry> = emptyList(),
+    val diagnostics: NetGuardDiagnostics = NetGuardDiagnostics(),
     val config: NetGuardConfig = NetGuardConfig(),
     val blockedDomains: List<String> = emptyList(),
     val feedbackMessage: String? = null,
 )
 
 /**
- * 網路守門員 ViewModel，整合執行期流量狀態與本機規則庫。
+ * 網路守門員 ViewModel，整合執行期流量狀態、引擎診斷資訊與本機規則庫。
  */
 class NetGuardViewModel(
     private val rulesRepository: NetGuardRulesRepository,
@@ -39,7 +41,7 @@ class NetGuardViewModel(
     private val feedbackMessage = MutableStateFlow<String?>(null)
 
     /**
-     * 整合 VPN 即時快照、防側漏設定與黑名單清單的 UI StateFlow。
+     * 整合 VPN 即時快照、診斷狀態、防側漏設定與黑名單清單的 UI StateFlow。
      */
     val uiState: StateFlow<NetGuardUiState> = combine(
         NetGuardRuntimeState.snapshot,
@@ -53,6 +55,7 @@ class NetGuardViewModel(
             allowedCount = runtime.allowedCount,
             blockedCount = runtime.blockedCount,
             logs = runtime.logs,
+            diagnostics = runtime.diagnostics,
             config = config,
             blockedDomains = domains.sorted(),
             feedbackMessage = message,

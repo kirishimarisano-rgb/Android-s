@@ -62,6 +62,37 @@ class DnsPacketParserTest {
         assertEquals(53, parsed.sourcePort)
         assertEquals(51234, parsed.destinationPort)
         assertEquals(query.size, parsed.payloadLength)
+
+        // Verify IPv4 header checksum validates to 0
+        assertEquals(0, internetChecksum(wrapped, 0, 20))
+
+        // Verify UDP checksum (with IPv4 pseudo-header) validates to 0
+        val udpLen = wrapped.size - 20
+        val pseudo = ByteArray(12 + udpLen)
+        System.arraycopy(wrapped, 12, pseudo, 0, 8) // srcIp + dstIp
+        pseudo[8] = 0
+        pseudo[9] = IpAddressRules.PROTO_UDP.toByte()
+        pseudo[10] = ((udpLen ushr 8) and 0xFF).toByte()
+        pseudo[11] = (udpLen and 0xFF).toByte()
+        System.arraycopy(wrapped, 20, pseudo, 12, udpLen)
+        assertEquals(0, internetChecksum(pseudo, 0, pseudo.size))
+    }
+
+    private fun internetChecksum(data: ByteArray, offset: Int, length: Int): Int {
+        var sum = 0L
+        var i = offset
+        val end = offset + length
+        while (i + 1 < end) {
+            sum += ((data[i].toInt() and 0xFF) shl 8) or (data[i + 1].toInt() and 0xFF)
+            i += 2
+        }
+        if (i < end) {
+            sum += (data[i].toInt() and 0xFF) shl 8
+        }
+        while ((sum ushr 16) != 0L) {
+            sum = (sum and 0xFFFF) + (sum ushr 16)
+        }
+        return (sum.inv() and 0xFFFF).toInt()
     }
 
     private fun buildDnsQuery(domain: String, transactionId: Int, qType: Int): ByteArray {
