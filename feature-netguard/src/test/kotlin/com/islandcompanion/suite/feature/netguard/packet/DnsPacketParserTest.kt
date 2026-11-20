@@ -95,6 +95,42 @@ class DnsPacketParserTest {
         return (sum.inv() and 0xFFFF).toInt()
     }
 
+    @Test
+    fun buildDnsQuery_andExtractIpv4Answers_roundTripCorrectly() {
+        val query = DnsPacketParser.buildDnsQuery("example.com", transactionId = 0x4242)
+        val parsed = DnsPacketParser.parseQuery(query)
+        assertNotNull(parsed)
+        assertEquals("example.com", parsed!!.domain)
+        assertEquals(0x4242, parsed.transactionId)
+
+        // Append a standard compressed A record answer for 93.184.215.14
+        val response = query.copyOf(query.size + 16)
+        response[2] = 0x81.toByte()
+        response[3] = 0x80.toByte()
+        response[7] = 0x01 // ANCOUNT = 1
+        val ans = query.size
+        response[ans] = 0xC0.toByte() // compression pointer to offset 12
+        response[ans + 1] = 0x0C
+        response[ans + 2] = 0x00
+        response[ans + 3] = 0x01 // TYPE A
+        response[ans + 4] = 0x00
+        response[ans + 5] = 0x01 // CLASS IN
+        // TTL = 300
+        response[ans + 8] = 0x01
+        response[ans + 9] = 0x2C
+        // RDLENGTH = 4
+        response[ans + 10] = 0x00
+        response[ans + 11] = 0x04
+        // RDATA = 93.184.215.14
+        response[ans + 12] = 93
+        response[ans + 13] = 184.toByte()
+        response[ans + 14] = 215.toByte()
+        response[ans + 15] = 14
+
+        val ips = DnsPacketParser.extractIpv4Answers(response)
+        assertEquals(listOf("93.184.215.14"), ips)
+    }
+
     private fun buildDnsQuery(domain: String, transactionId: Int, qType: Int): ByteArray {
         val out = ArrayList<Byte>()
         // Header (12 bytes): ID, Flags(RD=1), QDCOUNT=1, AN=0, NS=0, AR=0

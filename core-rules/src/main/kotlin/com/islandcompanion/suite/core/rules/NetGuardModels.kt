@@ -29,8 +29,11 @@ data class NetGuardConfig(
     val dnsUpstream: String = DEFAULT_DOH_UPSTREAM,
 ) {
     companion object {
-        const val DEFAULT_DOH_UPSTREAM = "https://dns.quad9.net/dns-query"
-        const val DEFAULT_DOT_UPSTREAM = "dns.quad9.net"
+        const val DEFAULT_DOH_UPSTREAM = "https://cloudflare-dns.com/dns-query"
+        const val QUAD9_DOH_UPSTREAM = "https://dns.quad9.net/dns-query"
+        const val GOOGLE_DOH_UPSTREAM = "https://dns.google/dns-query"
+        const val DEFAULT_DOT_UPSTREAM = "one.one.one.one"
+        const val QUAD9_DOT_UPSTREAM = "dns.quad9.net"
     }
 }
 

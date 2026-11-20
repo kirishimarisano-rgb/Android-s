@@ -192,11 +192,13 @@ fun NetGuardScreen(
 
             1 -> LeakGuardSettingsTab(
                 config = uiState.config,
+                dnsTestState = uiState.dnsTestState,
                 onBlockLanChanged = viewModel::setBlockLan,
                 onBlockStunChanged = viewModel::setBlockStun,
                 onBlockQuicChanged = viewModel::setBlockQuic,
                 onInterceptDnsChanged = viewModel::setInterceptDns,
                 onSaveDnsUpstream = viewModel::updateDnsUpstream,
+                onTestDnsUpstream = viewModel::testDnsUpstream,
             )
 
             2 -> BlocklistTab(
@@ -561,11 +563,13 @@ private fun TrafficLogCard(
 @Composable
 private fun LeakGuardSettingsTab(
     config: NetGuardConfig,
+    dnsTestState: DnsTestUiState,
     onBlockLanChanged: (Boolean) -> Unit,
     onBlockStunChanged: (Boolean) -> Unit,
     onBlockQuicChanged: (Boolean) -> Unit,
     onInterceptDnsChanged: (Boolean) -> Unit,
     onSaveDnsUpstream: (DnsUpstreamProtocol, String) -> Unit,
+    onTestDnsUpstream: (DnsUpstreamProtocol, String) -> Unit,
 ) {
     var selectedProtocol by remember(config.dnsProtocol) { mutableStateOf(config.dnsProtocol) }
     var upstreamInput by remember(config.dnsUpstream) { mutableStateOf(config.dnsUpstream) }
@@ -634,7 +638,7 @@ private fun LeakGuardSettingsTab(
                                     upstreamInput = NetGuardConfig.DEFAULT_DOH_UPSTREAM
                                 }
                             },
-                            label = { Text("DoH (HTTPS)") },
+                            label = { Text("DoH (HTTP/2)") },
                         )
                         FilterChip(
                             selected = selectedProtocol == DnsUpstreamProtocol.DOT,
@@ -647,26 +651,96 @@ private fun LeakGuardSettingsTab(
                             label = { Text("DoT (TLS 853)") },
                         )
                     }
+                    if (selectedProtocol == DnsUpstreamProtocol.DOH) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = upstreamInput.trim() == NetGuardConfig.DEFAULT_DOH_UPSTREAM,
+                                onClick = { upstreamInput = NetGuardConfig.DEFAULT_DOH_UPSTREAM },
+                                label = { Text("Cloudflare") },
+                            )
+                            FilterChip(
+                                selected = upstreamInput.trim() == NetGuardConfig.QUAD9_DOH_UPSTREAM,
+                                onClick = { upstreamInput = NetGuardConfig.QUAD9_DOH_UPSTREAM },
+                                label = { Text("Quad9") },
+                            )
+                            FilterChip(
+                                selected = upstreamInput.trim() == NetGuardConfig.GOOGLE_DOH_UPSTREAM,
+                                onClick = { upstreamInput = NetGuardConfig.GOOGLE_DOH_UPSTREAM },
+                                label = { Text("Google") },
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = upstreamInput,
                         onValueChange = { upstreamInput = it },
                         label = {
                             Text(
                                 if (selectedProtocol == DnsUpstreamProtocol.DOH) {
-                                    "DoH URL（例如 https://dns.quad9.net/dns-query）"
+                                    "DoH URL（例如 https://cloudflare-dns.com/dns-query）"
                                 } else {
-                                    "DoT 主機（例如 dns.quad9.net）"
+                                    "DoT 主機（例如 one.one.one.one）"
                                 },
                             )
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Button(
-                        onClick = { onSaveDnsUpstream(selectedProtocol, upstreamInput) },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("套用 DNS 上游設定")
+                        Button(
+                            onClick = { onSaveDnsUpstream(selectedProtocol, upstreamInput) },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("套用設定")
+                        }
+                        OutlinedButton(
+                            onClick = { onTestDnsUpstream(selectedProtocol, upstreamInput) },
+                            enabled = !dnsTestState.isTesting,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(if (dnsTestState.isTesting) "測試中…" else "測試 DoH 連線")
+                        }
+                    }
+
+                    dnsTestState.result?.let { result ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (result.success) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer
+                            },
+                            contentColor = if (result.success) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            },
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = if (result.success) {
+                                        "連線成功（${result.protocolLabel}，${result.latencyMs} ms）"
+                                    } else {
+                                        "連線失敗（${result.protocolLabel}，${result.latencyMs} ms）"
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = if (result.success) {
+                                        "example.com → ${result.resolvedIps.joinToString(", ")}"
+                                    } else {
+                                        result.errorMessage ?: "無法取得回應"
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
                     }
                 }
             }

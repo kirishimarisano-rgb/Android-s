@@ -64,6 +64,89 @@ object DnsPacketParser {
     }
 
     /**
+     * 建構標準 RFC 1035 DNS 查詢訊息（預設查詢 A 紀錄，供連線測試與單元測試使用）。
+     */
+    fun buildDnsQuery(
+        domain: String,
+        transactionId: Int = 0x4242,
+        queryType: Int = 1,
+    ): ByteArray {
+        val out = ByteArrayOutputStream(64)
+        // Header (12 bytes): ID, Flags(RD=1), QDCOUNT=1, AN/NS/AR=0
+        out.write((transactionId ushr 8) and 0xFF)
+        out.write(transactionId and 0xFF)
+        out.write(0x01)
+        out.write(0x00)
+        out.write(0x00)
+        out.write(0x01)
+        repeat(6) { out.write(0x00) }
+
+        val cleanDomain = domain.trim().trimEnd('.')
+        for (label in cleanDomain.split('.')) {
+            val bytes = label.toByteArray(Charsets.US_ASCII)
+            out.write(bytes.size and 0x3F)
+            out.write(bytes)
+        }
+        out.write(0x00)
+        out.write((queryType ushr 8) and 0xFF)
+        out.write(queryType and 0xFF)
+        out.write(0x00)
+        out.write(0x01) // QCLASS = IN
+        return out.toByteArray()
+    }
+
+    /**
+     * 從標準 DNS 回應封包解析出所有 IPv4 A 紀錄位址清單（供「測試 DoH 連線」顯示回傳 IP）。
+     */
+    fun extractIpv4Answers(responsePayload: ByteArray): List<String> {
+        if (responsePayload.size < 12) return emptyList()
+        val qdCount = readUInt16(responsePayload, 4)
+        val anCount = readUInt16(responsePayload, 6)
+        if (anCount <= 0) return emptyList()
+
+        var pos = 12
+        // Skip Questions
+        repeat(qdCount) {
+            pos = skipDnsName(responsePayload, pos) ?: return emptyList()
+            pos += 4 // QTYPE + QCLASS
+            if (pos > responsePayload.size) return emptyList()
+        }
+
+        val ips = mutableListOf<String>()
+        repeat(anCount) {
+            pos = skipDnsName(responsePayload, pos) ?: return ips
+            if (pos + 10 > responsePayload.size) return ips
+            val rType = readUInt16(responsePayload, pos)
+            val rClass = readUInt16(responsePayload, pos + 2)
+            val rdLength = readUInt16(responsePayload, pos + 8)
+            pos += 10
+            if (pos + rdLength > responsePayload.size) return ips
+            if (rType == 1 && rClass == 1 && rdLength == 4) {
+                val ip = "${responsePayload[pos].toInt() and 0xFF}." +
+                    "${responsePayload[pos + 1].toInt() and 0xFF}." +
+                    "${responsePayload[pos + 2].toInt() and 0xFF}." +
+                    "${responsePayload[pos + 3].toInt() and 0xFF}"
+                ips.add(ip)
+            }
+            pos += rdLength
+        }
+        return ips
+    }
+
+    private fun skipDnsName(data: ByteArray, startPos: Int): Int? {
+        var pos = startPos
+        while (pos < data.size) {
+            val len = data[pos].toInt() and 0xFF
+            if (len == 0) return pos + 1
+            if ((len and 0xC0) == 0xC0) {
+                return if (pos + 2 <= data.size) pos + 2 else null
+            }
+            pos += 1 + len
+        }
+        return null
+    }
+
+    /**
      * 依據原始 DNS 查詢封包合成標準 `NXDOMAIN`（RCODE = 3）黑洞回應，
      * 供網域黑名單攔截時立即回覆給 App 避免逾時卡頓。
      */
